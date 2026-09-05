@@ -3461,7 +3461,10 @@ $adapterFiles = @(
     "kiro.ps1", "openclaw.ps1", "amp.ps1", "antigravity.ps1",
     "kimi.ps1", "opencode.ps1", "kilo.ps1", "deepagents.ps1",
     "qwen.ps1", "iflow.ps1", "trae.ps1", "kiro-ide.ps1", "eca.ps1",
-    "grok.ps1"
+    "grok.ps1",
+    # Cross-platform: the Antigravity transcript watcher is plain Python,
+    # and antigravity.ps1 has no equivalent turn-boundary parsing.
+    "antigravity-watcher.py"
 )
 
 $sourceAdaptersDir = Join-Path $ScriptDir "adapters"

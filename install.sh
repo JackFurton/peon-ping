@@ -626,6 +626,8 @@ if [ -n "$SCRIPT_DIR" ]; then
   if [ -d "$SCRIPT_DIR/adapters" ]; then
     mkdir -p "$INSTALL_DIR/adapters"
     cp "$SCRIPT_DIR/adapters/"*.sh "$INSTALL_DIR/adapters/" 2>/dev/null || true
+    # antigravity-py.sh is useless without its watcher
+    cp "$SCRIPT_DIR/adapters/"*.py "$INSTALL_DIR/adapters/" 2>/dev/null || true
   fi
   if [ -d "$SCRIPT_DIR/scripts" ]; then
     mkdir -p "$INSTALL_DIR/scripts"
@@ -657,6 +659,8 @@ else
   curl -fsSL "$REPO_BASE/adapters/cursor.sh" -o "$INSTALL_DIR/adapters/cursor.sh" 2>/dev/null || true
   curl -fsSL "$REPO_BASE/adapters/kiro.sh" -o "$INSTALL_DIR/adapters/kiro.sh" 2>/dev/null || true
   curl -fsSL "$REPO_BASE/adapters/antigravity.sh" -o "$INSTALL_DIR/adapters/antigravity.sh" 2>/dev/null || true
+  curl -fsSL "$REPO_BASE/adapters/antigravity-py.sh" -o "$INSTALL_DIR/adapters/antigravity-py.sh" 2>/dev/null || true
+  curl -fsSL "$REPO_BASE/adapters/antigravity-watcher.py" -o "$INSTALL_DIR/adapters/antigravity-watcher.py" 2>/dev/null || true
   curl -fsSL "$REPO_BASE/adapters/gemini.sh" -o "$INSTALL_DIR/adapters/gemini.sh" 2>/dev/null || true
   curl -fsSL "$REPO_BASE/adapters/openclaw.sh" -o "$INSTALL_DIR/adapters/openclaw.sh" 2>/dev/null || true
   curl -fsSL "$REPO_BASE/adapters/opencode.sh" -o "$INSTALL_DIR/adapters/opencode.sh" 2>/dev/null || true

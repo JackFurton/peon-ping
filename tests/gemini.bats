@@ -52,7 +52,9 @@ JSON
   [[ "$sound" == *"/packs/peon/sounds/Done"* ]]
 }
 
-@test "gemini adapter: AfterTool (success) triggers completion" {
+@test "gemini adapter: AfterTool (success) is silent" {
+  # A tool succeeding is the middle of a turn. AfterAgent reports
+  # completion; sounding here fired "Job's done" after every tool call.
   export CLAUDE_PEON_DIR="$TEST_DIR"
   run bash "$ADAPTER_SH" AfterTool <<'JSON'
 {
@@ -64,12 +66,10 @@ JSON
 JSON
   [ "$status" -eq 0 ]
   [ "$output" = "{}" ]
-  
+
   sleep 0.5
-  
-  afplay_was_called
-  sound=$(afplay_sound)
-  [[ "$sound" == *"/packs/peon/sounds/Done"* ]]
+
+  [ "$(afplay_call_count)" -eq 0 ]
 }
 
 @test "gemini adapter: AfterTool (failure) triggers error sound" {

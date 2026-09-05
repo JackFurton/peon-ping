@@ -6,9 +6,10 @@
 #
 # This adapter is designed for background / headless / LaunchAgent use.
 # Unlike the shell-only antigravity.sh adapter, it uses a Python watcher
-# with a 25s idle threshold that survives tool-call pauses without
-# false-triggering, and pipes events through peon.sh for full config
-# support (volume, pack rotation, notifications, etc.).
+# that reads turn boundaries out of transcript.jsonl rather than guessing
+# them from file mtime, so a long tool call is never mistaken for
+# completion. Events are piped through peon.sh for full config support
+# (volume, pack rotation, notifications, etc.).
 #
 # Requires: python3, pip-installed watchdog, peon-ping already installed
 #
@@ -68,7 +69,9 @@ for arg in "$@"; do
       echo ""
       echo "Environment:"
       echo "  ANTIGRAVITY_NO_LAUNCHD=1   Force nohup+pidfile on macOS (skip LaunchAgent)"
-      echo "  ANTIGRAVITY_IDLE_SECONDS   Seconds of silence before emitting Stop (default: 25)"
+      echo "  ANTIGRAVITY_IDLE_SECONDS   Seconds of silence before emitting Stop for"
+      echo "                             legacy .pb/.db sessions (default: 45)."
+      echo "                             Ignored for sessions with a transcript.jsonl."
       exit 0 ;;
   esac
 done
@@ -251,18 +254,77 @@ pipe_to_peon() {
   local event="$1"
   local session_id="$2"
   local cwd="$3"
+  local tool_name="${4:-}"
+  local error="${5:-}"
 
-  _PE="$event" _PC="$cwd" _PS="$session_id" python3 -c "
+  # tool_name and error are only set for failures: peon.sh gates
+  # task.error on a named tool plus a non-empty error string.
+  _PE="$event" _PC="$cwd" _PS="$session_id" _PT="$tool_name" _PR="$error" python3 -c "
 import json, os
-print(json.dumps({
+payload = {
     'hook_event_name': os.environ['_PE'],
     'notification_type': '',
     'cwd': os.environ['_PC'],
     'session_id': os.environ['_PS'],
     'permission_mode': '',
     'source': 'antigravity',
-}))
+}
+if os.environ.get('_PT'):
+    payload['tool_name'] = os.environ['_PT']
+    payload['error'] = os.environ.get('_PR', '')
+print(json.dumps(payload))
 " | bash "$PEON_DIR/peon.sh" 2>/dev/null || true
+}
+
+# --- Route one JSON event line from the watcher ---
+dispatch_event_line() {
+  local line="$1"
+  [ -z "$line" ] && return 0
+
+  # One python call per line, not five: the watcher can emit a burst.
+  # Tab-delimited on a single line, because $() strips trailing newlines
+  # and a line-per-field read then hits EOF on the empty trailing fields.
+  local parsed
+  parsed=$(echo "$line" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+fields = [str(d.get(k, '')).replace('\t', ' ').replace('\n', ' ')
+          for k in ('event', 'session_id', 'cwd', 'tool_name', 'error')]
+print('\t'.join(fields))
+" 2>/dev/null) || return 0
+
+  local event session_id event_cwd tool_name tool_error
+  IFS=$'\t' read -r event session_id event_cwd tool_name tool_error <<< "$parsed"
+
+  case "$event" in
+    SessionStart)
+      info "New agent session: $session_id"
+      pipe_to_peon "SessionStart" "$session_id" "$event_cwd"
+      ;;
+    UserPromptSubmit)
+      info "Agent activated: $session_id"
+      pipe_to_peon "UserPromptSubmit" "$session_id" "$event_cwd"
+      ;;
+    Stop)
+      info "Agent completed: $session_id"
+      pipe_to_peon "Stop" "$session_id" "$event_cwd"
+      ;;
+    PermissionRequest)
+      info "Awaiting confirmation: $session_id"
+      pipe_to_peon "PermissionRequest" "$session_id" "$event_cwd"
+      ;;
+    PostToolUseFailure)
+      info "Agent error: $session_id"
+      pipe_to_peon "PostToolUseFailure" "$session_id" "$event_cwd" "$tool_name" "$tool_error"
+      ;;
+    Notification)
+      info "Notification: $session_id"
+      pipe_to_peon "Notification" "$session_id" "$event_cwd"
+      ;;
+    *)
+      warn "Unknown event: $event"
+      ;;
+  esac
 }
 
 # --- Test mode: skip main loop when sourced for testing ---
@@ -278,31 +340,9 @@ info "Press Ctrl+C to stop."
 echo ""
 
 # Start the Python watcher and read JSON events from its stdout.
-# Each line is a JSON object with {event, session_id, cwd}.
-# We pipe each one through peon.sh for sound playback.
-python3 "$WATCHER_PY" --cwd "$PWD" 2>"$LOGFILE" | while IFS= read -r line; do
-  [ -z "$line" ] && continue
-
-  # Parse event fields from JSON
-  event=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin)['event'])" 2>/dev/null) || continue
-  session_id=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin)['session_id'])" 2>/dev/null) || continue
-  event_cwd=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin)['cwd'])" 2>/dev/null) || continue
-
-  case "$event" in
-    SessionStart)
-      info "New agent session: $session_id"
-      pipe_to_peon "SessionStart" "$session_id" "$event_cwd"
-      ;;
-    UserPromptSubmit)
-      info "Agent activated: $session_id"
-      pipe_to_peon "UserPromptSubmit" "$session_id" "$event_cwd"
-      ;;
-    Stop)
-      info "Agent completed: $session_id"
-      pipe_to_peon "Stop" "$session_id" "$event_cwd"
-      ;;
-    *)
-      warn "Unknown event: $event"
-      ;;
-  esac
+# The LaunchAgent points stdout and stderr at this same file, so append
+# rather than truncate: two writers sharing an offset overwrite each other
+# mid-line and the log becomes unreadable.
+python3 "$WATCHER_PY" --cwd "$PWD" 2>>"$LOGFILE" | while IFS= read -r line; do
+  dispatch_event_line "$line"
 done

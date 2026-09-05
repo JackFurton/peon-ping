@@ -58,12 +58,17 @@ switch ($EventType) {
         $mapped = "Notification"
     }
     "AfterTool" {
+        # Only failures are worth a sound here. A tool succeeding is the
+        # middle of a turn, not the end of one — AfterAgent reports
+        # completion. Treating exit 0 as Stop fired "Job's done" after
+        # every single tool call.
         $exitCode = 0
-        if ($inputJson.exit_code -ne $null) { $exitCode = [int]$inputJson.exit_code }
+        if ($null -ne $inputJson.exit_code) { $exitCode = [int]$inputJson.exit_code }
         if ($exitCode -ne 0) {
             $mapped = "PostToolUseFailure"
         } else {
-            $mapped = "Stop"
+            Write-Output "{}"
+            exit 0
         }
     }
     default {

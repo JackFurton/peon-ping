@@ -25,3 +25,7 @@ result-*
 .direnv
 .envrc.local
 .gitban/
+
+# Python bytecode from the adapter/test imports
+__pycache__/
+*.pyc
