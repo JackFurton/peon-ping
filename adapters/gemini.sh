@@ -29,13 +29,17 @@ case "$GEMINI_EVENT_TYPE" in
     EVENT="Notification"
     ;;
   AfterTool)
-    # Check if tool failed
+    # Only failures are worth a sound here. A tool succeeding is the
+    # middle of a turn, not the end of one — AfterAgent reports
+    # completion. Treating exit 0 as Stop fired "Job's done" after every
+    # single tool call.
     EXIT_CODE=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('exit_code', 0))" 2>/dev/null || echo 0)
     if [ "$EXIT_CODE" -ne 0 ]; then
       EVENT="PostToolUseFailure"
       TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', 'unknown'))" 2>/dev/null || echo "unknown")
     else
-      EVENT="Stop"
+      echo "{}"
+      exit 0
     fi
     ;;
   *)

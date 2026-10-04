@@ -622,7 +622,7 @@ peon-ping 适用于任何支持钩子的代理式 IDE。适配器将 IDE 特定�
 | **Kilo CLI** | 适配器 | `bash adapters/kilo.sh` / `powershell adapters/kilo.ps1`（[设置](#kilo-cli-设置)） |
 | **Kiro** | 适配器 | 添加指向 `adapters/kiro.sh`（或 `.ps1`）的钩子条目（[设置](#kiro-设置)） |
 | **Windsurf** | 适配器 | 添加指向 `adapters/windsurf.sh`（或 `.ps1`）的钩子条目（[设置](#windsurf-设置)） |
-| **Google Antigravity** | 适配器 | `bash adapters/antigravity.sh` / `powershell adapters/antigravity.ps1`。无头 / macOS LaunchAgent 场景可用 `bash adapters/antigravity-py.sh --install`（基于 Python `watchdog` 的 25 秒空闲阈值守护进程，需要 `pip3 install watchdog`）。Python 守护进程支持旧版 `conversations/*.pb` 状态，以及较新的 `antigravity-cli` / `antigravity-ide` 的 `conversations/*.db` 和 `brain/**/transcript*.jsonl` 布局。 |
+| **Google Antigravity** | 适配器 | `bash adapters/antigravity.sh` / `powershell adapters/antigravity.ps1`。无头 / macOS LaunchAgent 场景可用 `bash adapters/antigravity-py.sh --install`（基于 Python `watchdog` 的守护进程，需要 `pip3 install watchdog`）。该守护进程解析 `brain/**/transcript.jsonl` 判断回合边界，并从 `cli.log` 读取权限确认提示，可提供与 Claude Code 相同的五种提示音。没有 transcript 的旧版 `conversations/*.pb` 与 `*.db` 会话则回退到 45 秒空闲计时器（`ANTIGRAVITY_IDLE_SECONDS`）。 |
 | **Kimi Code** | 适配器 | `bash adapters/kimi.sh --install` / `powershell adapters/kimi.ps1 -Install`（[设置](#kimi-code-设置)） |
 | **OpenClaw** | 适配器 | 调用 `adapters/openclaw.sh <event>`（或 `openclaw.ps1`），支持所有 CESP 分类和原生 Claude Code 事件名 |
 | **Rovo Dev CLI** | 适配器 | 如果 `~/.rovodev` 存在，`install.sh` 会自动注册，或手动添加钩子到 `~/.rovodev/config.yml`（[设置](#rovo-dev-cli-设置)） |

@@ -164,3 +164,129 @@ SCRIPT
   [[ "$output" == *"Usage"* ]]
   [[ "$output" == *"--install"* ]]
 }
+
+@test "pipe_to_peon omits tool_name when there is no failure" {
+  source_adapter
+
+  local spy_out="$TEST_DIR/peon_spy_out"
+  cat > "$TEST_DIR/peon.sh" <<SCRIPT
+#!/bin/bash
+cat > "$spy_out"
+SCRIPT
+  chmod +x "$TEST_DIR/peon.sh"
+
+  pipe_to_peon "Stop" "antigravity-abc12345" "/tmp/test"
+
+  local captured
+  captured=$(cat "$spy_out")
+  [[ "$captured" != *"tool_name"* ]]
+}
+
+@test "pipe_to_peon forwards tool_name and error for failures" {
+  # peon.sh only sounds task.error when the payload names a tool and
+  # carries a non-empty error string.
+  source_adapter
+
+  local spy_out="$TEST_DIR/peon_spy_out"
+  cat > "$TEST_DIR/peon.sh" <<SCRIPT
+#!/bin/bash
+cat > "$spy_out"
+SCRIPT
+  chmod +x "$TEST_DIR/peon.sh"
+
+  pipe_to_peon "PostToolUseFailure" "antigravity-abc12345" "/tmp/test" "Bash" "Exit code 1"
+
+  local captured
+  captured=$(cat "$spy_out")
+  [[ "$captured" == *'"tool_name": "Bash"'* ]] || [[ "$captured" == *'"tool_name":"Bash"'* ]]
+  [[ "$captured" == *"Exit code 1"* ]]
+}
+
+@test "antigravity failure payload makes peon.sh play the error sound" {
+  # End-to-end: watcher payload shape -> real peon.sh -> task.error sound.
+  source_adapter
+
+  pipe_to_peon "PostToolUseFailure" "antigravity-abc12345" "/tmp/test" "Bash" "Exit code 1"
+  sleep 0.5
+
+  afplay_was_called
+  sound=$(afplay_sound)
+  [[ "$sound" == *"/packs/peon/sounds/Error"* ]]
+}
+
+@test "antigravity permission payload makes peon.sh play the approval sound" {
+  # cli.log tool confirmations arrive as PermissionRequest -> input.required.
+  source_adapter
+
+  pipe_to_peon "PermissionRequest" "antigravity-abc12345" "/tmp/test"
+  sleep 0.5
+
+  afplay_was_called
+  sound=$(afplay_sound)
+  [[ "$sound" == *"/packs/peon/sounds/"* ]]
+}
+
+@test "dispatch_event_line routes a watcher line with no optional fields" {
+  # Regression: $() strips trailing newlines, so a line-per-field read hit
+  # EOF on the empty tool_name/error and killed the loop under set -e.
+  source_adapter
+
+  local spy_out="$TEST_DIR/peon_spy_out"
+  cat > "$TEST_DIR/peon.sh" <<SCRIPT
+#!/bin/bash
+cat >> "$spy_out"
+echo >> "$spy_out"
+SCRIPT
+  chmod +x "$TEST_DIR/peon.sh"
+
+  run dispatch_event_line '{"event":"Stop","session_id":"antigravity-abc","cwd":"/tmp/test"}'
+  [ "$status" -eq 0 ]
+
+  local captured
+  captured=$(cat "$spy_out")
+  [[ "$captured" == *'"hook_event_name": "Stop"'* ]] || \
+  [[ "$captured" == *'"hook_event_name":"Stop"'* ]]
+  [[ "$captured" != *"tool_name"* ]]
+}
+
+@test "dispatch_event_line carries tool_name and error through to peon.sh" {
+  source_adapter
+
+  local spy_out="$TEST_DIR/peon_spy_out"
+  cat > "$TEST_DIR/peon.sh" <<SCRIPT
+#!/bin/bash
+cat > "$spy_out"
+SCRIPT
+  chmod +x "$TEST_DIR/peon.sh"
+
+  run dispatch_event_line '{"event":"PostToolUseFailure","session_id":"antigravity-abc","cwd":"/tmp/test","tool_name":"Bash","error":"Exit code 1"}'
+  [ "$status" -eq 0 ]
+
+  local captured
+  captured=$(cat "$spy_out")
+  [[ "$captured" == *"Bash"* ]]
+  [[ "$captured" == *"Exit code 1"* ]]
+}
+
+@test "dispatch_event_line survives a cwd containing spaces" {
+  source_adapter
+
+  local spy_out="$TEST_DIR/peon_spy_out"
+  cat > "$TEST_DIR/peon.sh" <<SCRIPT
+#!/bin/bash
+cat > "$spy_out"
+SCRIPT
+  chmod +x "$TEST_DIR/peon.sh"
+
+  run dispatch_event_line '{"event":"SessionStart","session_id":"antigravity-abc","cwd":"/tmp/some dir"}'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$spy_out")" == *"/tmp/some dir"* ]]
+}
+
+@test "dispatch_event_line ignores malformed and empty lines" {
+  source_adapter
+  run dispatch_event_line 'not json at all'
+  [ "$status" -eq 0 ]
+  run dispatch_event_line ''
+  [ "$status" -eq 0 ]
+}

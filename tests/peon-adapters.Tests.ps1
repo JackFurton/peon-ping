@@ -123,14 +123,15 @@ Describe "Functional: gemini.ps1 event mapping" {
         $json.hook_event_name | Should -Be "PostToolUseFailure"
     }
 
-    It "maps AfterTool with zero exit_code to Stop" {
+    It "stays silent on AfterTool with zero exit_code" {
+        # A tool succeeding is the middle of a turn. AfterAgent reports
+        # completion; sounding here fired "Job's done" after every tool call.
         $adapter = Join-Path $script:AdaptersDir "gemini.ps1"
         $stdinJson = '{"exit_code": 0}'
         $stdinJson | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
 
         $json = Get-PeonInputLog $script:testDir
-        $json | Should -Not -BeNullOrEmpty
-        $json.hook_event_name | Should -Be "Stop"
+        $json | Should -BeNullOrEmpty
     }
 
     It "maps SessionStart to SessionStart" {
