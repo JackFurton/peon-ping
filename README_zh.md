@@ -930,7 +930,7 @@ curl -fsSL https://raw.githubusercontent.com/PeonPing/peon-ping/main/adapters/ki
 
 - `SessionStart`（startup）→ 问候音效（*"准备好了吗？"*、*"是的？"*）
 - `AfterAgent` → 任务完成音效（*"干活，干活。"*、*"完成了！"*）
-- `AfterTool`（成功）→ 任务完成音效；（失败）→ 错误音效（*"我做不到。"*）
+- `AfterTool`（成功）→ 静音；`tool_response.error` → 错误音效（*"我做不到。"*）。也支持旧版顶层 `exit_code`/`stderr` 输入。
 - `Notification` → 系统通知
 
 ### Windsurf 设置

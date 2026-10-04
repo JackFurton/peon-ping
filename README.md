@@ -1047,7 +1047,7 @@ A shell adapter for **Gemini CLI** with full [CESP v1.0](https://github.com/Peon
 
 - `SessionStart` (startup) → Greeting sound (*"Ready to work?"*, *"Yes?"*)
 - `AfterAgent` → Task completion sound (*"Work, work."*, *"Job's done!"*)
-- `AfterTool` → Success = Task completion sound, Failure = Error sound (*"I can't do that."*)
+- `AfterTool` → Success = Silent; `tool_response.error` = Error sound (*"I can't do that."*). Legacy top-level `exit_code`/`stderr` input is also supported.
 - `Notification` → System notification
 
 ### Windsurf setup

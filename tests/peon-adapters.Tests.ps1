@@ -123,15 +123,46 @@ Describe "Functional: gemini.ps1 event mapping" {
         $json.hook_event_name | Should -Be "PostToolUseFailure"
     }
 
-    It "stays silent on AfterTool with zero exit_code" {
-        # A tool succeeding is the middle of a turn. AfterAgent reports
-        # completion; sounding here fired "Job's done" after every tool call.
+    It "keeps AfterTool with zero exit_code silent" {
         $adapter = Join-Path $script:AdaptersDir "gemini.ps1"
-        $stdinJson = '{"exit_code": 0}'
-        $stdinJson | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
+        $output = '{"exit_code": 0}' | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
+        ($output -join "") | Should -Be "{}"
+        Get-PeonInputLog $script:testDir | Should -BeNullOrEmpty
+    }
 
+    It "maps the official tool_response.error to PostToolUseFailure" {
+        $adapter = Join-Path $script:AdaptersDir "gemini.ps1"
+        $stdinJson = '{"session_id":"native-session","cwd":"/tmp/project","hook_event_name":"AfterTool","timestamp":"2026-10-04T15:00:00Z","transcript_path":"/tmp/session.json","tool_name":"run_shell_command","tool_input":{"command":"false"},"tool_response":{"llmContent":"failed","returnDisplay":"failed","error":{"message":"Command failed","type":"execution_failed"}}}'
+        $output = $stdinJson | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
+        ($output -join "") | Should -Be "{}"
         $json = Get-PeonInputLog $script:testDir
-        $json | Should -BeNullOrEmpty
+        $json.hook_event_name | Should -Be "PostToolUseFailure"
+        $json.tool_name | Should -Be "Bash"
+        $json.error | Should -Be "Command failed"
+    }
+
+    It "keeps a successful native AfterTool silent" {
+        $adapter = Join-Path $script:AdaptersDir "gemini.ps1"
+        $stdinJson = '{"tool_name":"read_file","tool_response":{"llmContent":"contents","returnDisplay":"contents"}}'
+        $output = $stdinJson | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
+        ($output -join "") | Should -Be "{}"
+        Get-PeonInputLog $script:testDir | Should -BeNullOrEmpty
+    }
+
+    It "does not create a failure from an empty native error" {
+        $adapter = Join-Path $script:AdaptersDir "gemini.ps1"
+        $stdinJson = '{"tool_response":{"llmContent":"contents","returnDisplay":"contents","error":" "}}'
+        $output = $stdinJson | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
+        ($output -join "") | Should -Be "{}"
+        Get-PeonInputLog $script:testDir | Should -BeNullOrEmpty
+    }
+
+    It "prefers the native error message over legacy stderr" {
+        $adapter = Join-Path $script:AdaptersDir "gemini.ps1"
+        $stdinJson = '{"tool_response":{"error":{"message":"native failure"}},"exit_code":1,"stderr":"legacy failure"}'
+        $stdinJson | & powershell -NoProfile -NonInteractive -File $adapter -EventType "AfterTool"
+        $json = Get-PeonInputLog $script:testDir
+        $json.error | Should -Be "native failure"
     }
 
     It "maps SessionStart to SessionStart" {
