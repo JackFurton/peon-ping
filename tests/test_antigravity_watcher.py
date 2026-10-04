@@ -957,6 +957,32 @@ class TestConversationCwd(unittest.TestCase):
             self.watcher_mod.conversation_cwd("older-guid", "/fallback"), "/fallback"
         )
 
+    def test_legacy_completion_keeps_the_conversation_workspace(self):
+        """An idle completion must retain the workspace used by the prompt."""
+        import io
+
+        self._cache({"/tmp/agent-workspace": "legacy-guid"})
+        convdir = os.path.join(self.tmpdir, "conversations")
+        os.makedirs(convdir, exist_ok=True)
+        conversation = os.path.join(convdir, "legacy-guid.pb")
+        with open(conversation, "wb") as handle:
+            handle.write(b"state")
+
+        captured = io.StringIO()
+        with patch.object(self.watcher_mod, "CONVERSATIONS_DIR", convdir), \
+             patch.object(self.watcher_mod, "BRAIN_DIR", os.path.join(self.tmpdir, "brain")), \
+             patch.object(self.watcher_mod, "STARTUP_GRACE", 0), \
+             patch("sys.stdout", captured):
+            watcher = self.watcher_mod.ConversationWatcher(cwd="/tmp/daemon-workspace")
+            watcher._on_file_activity(conversation)
+            watcher.conversations["legacy-guid"]["last_mod"] = time.time() - 100
+            watcher.check_completions()
+
+        events = [json.loads(line) for line in captured.getvalue().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["UserPromptSubmit", "Stop"])
+        self.assertEqual([event["cwd"] for event in events],
+                         ["/tmp/agent-workspace", "/tmp/agent-workspace"])
+
     def test_missing_or_corrupt_cache_falls_back(self):
         self.assertEqual(self.watcher_mod.conversation_cwd("g", "/fallback"), "/fallback")
         with open(os.path.join(self.tmpdir, "cache", "last_conversations.json"), "w") as f:

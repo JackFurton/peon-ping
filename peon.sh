@@ -2009,8 +2009,8 @@ if os.path.isdir(grok_dir):
     else:
         ides.append(('Grok Build', grok_dir, 'detected (not set up)'))
 
-# Antigravity has no settings file to register hooks in — the adapter is a
-# background watcher, so 'installed' means the daemon is set up to run.
+# This Antigravity adapter is a background watcher, so 'installed' here means
+# its daemon is set up to run. Native Antigravity hook registration is separate.
 ag_dir = next(
     (d for d in (
         os.environ.get('ANTIGRAVITY_DIR', ''),

@@ -622,7 +622,7 @@ peon-ping はフックをサポートする任意のエージェント型 IDE �
 | **Kilo CLI** | アダプター | `bash adapters/kilo.sh` / `powershell adapters/kilo.ps1`（[セットアップ](#kilo-cli-セットアップ)） |
 | **Kiro** | アダプター | `adapters/kiro.sh`（または `.ps1`）を指すフックエントリを追加（[セットアップ](#kiro-セットアップ)） |
 | **Windsurf** | アダプター | `adapters/windsurf.sh`（または `.ps1`）を指すフックエントリを追加（[セットアップ](#windsurf-セットアップ)） |
-| **Google Antigravity** | アダプター | `bash adapters/antigravity.sh` / `powershell adapters/antigravity.ps1`。ヘッドレス / macOS LaunchAgent 用途には `bash adapters/antigravity-py.sh --install`（Python `watchdog` ベース、25 秒のアイドル閾値、`pip3 install watchdog` が必要）もあります。Python ウォッチャーは旧来の `conversations/*.pb` 状態に加え、新しい `antigravity-cli` / `antigravity-ide` の `conversations/*.db` と `brain/**/transcript*.jsonl` レイアウトにも対応しています。 |
+| **Google Antigravity** | アダプター | `bash adapters/antigravity.sh` / `powershell adapters/antigravity.ps1`。ヘッドレス / macOS LaunchAgent 用途には `bash adapters/antigravity-py.sh --install`（Python `watchdog` ベース、`pip3 install watchdog` が必要）もあります。Python ウォッチャーは `brain/**/transcript.jsonl` からターンの境界を、`cli.log` から許可要求を読み取り、Claude Code と同じ 5 種類の通知音を提供します。transcript がない旧来の `conversations/*.pb` と `*.db` セッションには 45 秒のアイドルタイマー（`ANTIGRAVITY_IDLE_SECONDS`）を使用します。 |
 | **Kimi Code** | アダプター | `bash adapters/kimi.sh --install` / `powershell adapters/kimi.ps1 -Install`（[セットアップ](#kimi-code-セットアップ)） |
 | **OpenClaw** | アダプター | OpenClaw スキルから `adapters/openclaw.sh <event>`（または `openclaw.ps1`）を呼び出し |
 | **Rovo Dev CLI** | アダプター | `~/.rovodev` が存在する場合 `install.sh` が自動登録、または `~/.rovodev/config.yml` にフックを手動追加（[セットアップ](#rovo-dev-cli-セットアップ)） |

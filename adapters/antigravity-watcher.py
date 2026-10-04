@@ -738,7 +738,7 @@ class ConversationWatcher(FileSystemEventHandler):
             conv["state"] = IDLE
             if not self._in_grace_period():
                 log.info(f"Agent done: {guid[:8]} (silent {elapsed:.0f}s)")
-                emit_event("Stop", guid, self.cwd)
+                self._emit("Stop", guid)
                 conv["last_stop"] = now
 
 
