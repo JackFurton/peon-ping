@@ -1,4 +1,4 @@
-## v2.38.0 (2026-09-05)
+## Unreleased
 
 ### Fixed
 - **Antigravity fired "Job's done!" then "Right away!" on every tool call.** The Python watcher decided a turn had ended from file mtime alone, so any tool that ran longer than the idle threshold (25s, or 8s in some local setups) was read as completion, and the write that came back when the tool finished was read as a new user prompt. It now parses `brain/<guid>/.system_generated/logs/transcript.jsonl` and takes the turn boundary from Antigravity's own records: `USER_INPUT` with `source: USER_EXPLICIT` is a prompt, a `PLANNER_RESPONSE` carrying `tool_calls` is work in flight, and one carrying prose and no tool calls is the final answer. Idle timeouts are switched off entirely for these sessions, so tool duration no longer matters. Replaying the 33 transcripts on a real machine turns 124 user prompts into exactly 124 acknowledgements. Sessions with no transcript (legacy `conversations/*.pb` and `*.db`) keep the mtime fallback, now at 45s.
