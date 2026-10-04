@@ -46,6 +46,7 @@ $cwd = if ($inputJson.cwd) { $inputJson.cwd } else { $PWD.Path }
 
 # Map Gemini event to CESP event name
 $mapped = $null
+$errorText = ""
 
 switch ($EventType) {
     "SessionStart" {
@@ -58,12 +59,30 @@ switch ($EventType) {
         $mapped = "Notification"
     }
     "AfterTool" {
-        $exitCode = 0
-        if ($inputJson.exit_code -ne $null) { $exitCode = [int]$inputJson.exit_code }
-        if ($exitCode -ne 0) {
+        # Native Gemini hooks carry ToolResult.error inside tool_response.
+        # Keep the prior top-level exit_code/stderr contract as a fallback.
+        $nativeError = $inputJson.tool_response.error
+        $nativeFailure = $nativeError -is [System.Management.Automation.PSCustomObject] -or (
+            $nativeError -is [string] -and -not [string]::IsNullOrWhiteSpace($nativeError)
+        )
+        if ($nativeFailure) {
+            $errorText = if ($nativeError -is [string]) { $nativeError } else { $nativeError.message }
+            if (-not $errorText) { $errorText = "Tool failed" }
+        } else {
+            $exitCode = 0
+            if ($null -ne $inputJson.exit_code) {
+                [int]::TryParse([string]$inputJson.exit_code, [ref]$exitCode) | Out-Null
+            }
+            if ($exitCode -ne 0) {
+                $errorText = if ($inputJson.stderr) { $inputJson.stderr } else { "Tool failed" }
+            }
+        }
+        if ($errorText) {
             $mapped = "PostToolUseFailure"
         } else {
-            $mapped = "Stop"
+            # AfterAgent owns completion; successful tool calls stay quiet.
+            Write-Output "{}"
+            exit 0
         }
     }
     default {
@@ -85,7 +104,7 @@ $payload = @{
 
 if ($mapped -eq "PostToolUseFailure") {
     $payload["tool_name"] = "Bash"
-    $payload["error"] = if ($inputJson.stderr) { $inputJson.stderr } else { "Tool failed" }
+    $payload["error"] = $errorText
 }
 
 $payloadJson = $payload | ConvertTo-Json -Compress
